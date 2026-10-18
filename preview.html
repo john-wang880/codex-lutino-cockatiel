@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>玄凤 · Codex 桌宠互动预览</title>
+<style>
+:root{font-family:Inter,"Segoe UI","Microsoft YaHei",sans-serif;color:#31382f;background:#f4f2eb;color-scheme:light}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;padding:40px 5vw}main{max-width:1040px;margin:auto}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;margin-bottom:24px}.eyebrow{font-size:12px;letter-spacing:.13em;color:#7b816d}h1{font-size:42px;letter-spacing:-.04em;font-weight:600;margin:12px 0}p{line-height:1.8;color:#747a6c;margin:8px 0}.tag{white-space:nowrap;padding:9px 14px;border:1px solid #d9dccd;border-radius:24px;font-size:12px}
+#arena{position:relative;height:460px;overflow:hidden;border:1px solid #dce0d2;border-radius:24px;background-color:#fcfcf8;background-image:radial-gradient(#d5daca 1px,transparent 1px);background-size:22px 22px;touch-action:none}
+.stage-label{position:absolute;top:22px;left:24px;font-size:12px;color:#929987;pointer-events:none}.status{position:absolute;bottom:20px;left:24px;color:#8d957f;font-size:12px;pointer-events:none}
+#bird{position:absolute;left:calc(50% - 96px);top:calc(50% - 92px);width:192px;height:208px;background-image:url('spritesheet.png');background-size:1536px 2288px;background-repeat:no-repeat;cursor:grab;user-select:none;-webkit-user-drag:none;filter:drop-shadow(0 12px 9px #3c4d3310)}
+#bird:active{cursor:grabbing}#bird:focus-visible{outline:2px dashed #b2bb96;outline-offset:12px;border-radius:20px}.controls{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}button{font:inherit;font-size:13px;border:1px solid #d9ddce;border-radius:24px;background:#f9faf4;color:#4d5745;padding:11px 17px;cursor:pointer}button:hover,button[aria-pressed=true]{background:#3c4b33;color:#fff;border-color:#3c4b33}footer{margin-top:22px;font-size:12px;color:#909685;line-height:1.9}#error{display:none;background:#fff1dd;color:#94602b;padding:16px;border-radius:12px;margin-top:16px}
+@media(max-width:600px){body{padding:24px 18px}h1{font-size:34px}header{align-items:flex-start;flex-direction:column;gap:10px}#arena{height:400px}}
+</style>
+<main>
+<header><div><div class="eyebrow">CODEX COMPANION / XUANFENG</div><h1>小玄凤，来陪你。</h1><p>移动鼠标让它看向你；点一下挥翅，双击蹦一下，也可以把它拖走。</p></div><span class="tag">原生精灵图 · 离线互动预览</span></header>
+<div id="arena"><span class="stage-label">把鼠标移到小玄凤周围试试</span><div id="bird" role="button" tabindex="0" aria-label="玄凤桌宠，点击挥翅，双击跳跃，方向键切换注视方向"></div><span id="status" class="status">待机</span></div>
+<div class="controls" aria-label="动画状态">
+<button data-state="idle" aria-pressed="true">待机 / 看鼠标</button><button data-state="waving">挥翅打招呼</button><button data-state="jumping">蹦一下</button><button data-state="running-right">向右小跑</button><button data-state="running-left">向左小跑</button><button data-state="running">认真工作</button><button data-state="waiting">等你回应</button><button data-state="review">检查成果</button><button data-state="failed">有点委屈</button>
+</div>
+<div id="error">未找到 spritesheet.png。请先解压整个安装包，再打开本文件。</div>
+<footer>这个页面使用安装包中的实际精灵图演示互动。Codex 桌宠本身的行为由应用控制。<br>键盘：空格跳跃，Enter 挥翅，Esc 回到待机；方向键查看四个注视方向。全部素材保存在本地，无需联网。</footer>
+</main>
+<script>
+const states={idle:{row:0,d:[280,110,110,140,140,320],label:'待机'},'running-right':{row:1,d:[120,120,120,120,120,120,120,220],label:'向右小跑'},'running-left':{row:2,d:[120,120,120,120,120,120,120,220],label:'向左小跑'},waving:{row:3,d:[140,140,140,280],label:'挥翅打招呼'},jumping:{row:4,d:[140,140,140,140,280],label:'蹦一下'},failed:{row:5,d:[140,140,140,140,140,140,140,240],label:'有点委屈'},waiting:{row:6,d:[150,150,150,150,150,260],label:'等你回应'},running:{row:7,d:[120,120,120,120,120,220],label:'认真工作'},review:{row:8,d:[150,150,150,150,150,280],label:'检查成果'}};
+const bird=document.querySelector('#bird'),arena=document.querySelector('#arena'),status=document.querySelector('#status');
+let state='idle',frame=0,deadline=0,look=null,drag=null,lastX=0,clickTimer=0,moved=false,once=false;
+const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function cell(r,c){bird.style.backgroundPosition=`${-192*c}px ${-208*r}px`}
+function choose(s,single=false){state=s;frame=0;deadline=0;look=null;once=single;status.textContent=states[s].label;document.querySelectorAll('button[data-state]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.state===s)))}
+function direction(index){look=(index+16)%16;cell(9+Math.floor(look/8),look%8);status.textContent='看向你 · '+(look*22.5)+'°'}
+document.querySelectorAll('button[data-state]').forEach(b=>b.addEventListener('click',()=>choose(b.dataset.state)));
+arena.addEventListener('pointermove',e=>{
+ if(drag){const box=arena.getBoundingClientRect(),x=Math.max(0,Math.min(arena.clientWidth-192,e.clientX-box.left-drag.x)),y=Math.max(0,Math.min(arena.clientHeight-208,e.clientY-box.top-drag.y));moved ||= Math.hypot(e.clientX-drag.sx,e.clientY-drag.sy)>5;bird.style.left=x+'px';bird.style.top=y+'px';if(moved){const s=e.clientX>=lastX?'running-right':'running-left';if(state!==s)choose(s)}lastX=e.clientX;return}
+ if(state!=='idle')return;const b=bird.getBoundingClientRect(),dx=e.clientX-b.left-96,dy=e.clientY-b.top-104;if(Math.hypot(dx,dy)<65){look=null;status.textContent='待机';return}direction(Math.round((Math.atan2(dx,-dy)*180/Math.PI+360)%360/22.5));
+});
+arena.addEventListener('pointerleave',()=>{if(!drag){look=null;status.textContent=states[state].label}});
+bird.addEventListener('pointerdown',e=>{if(e.button!==0)return;bird.focus();const b=bird.getBoundingClientRect();drag={x:e.clientX-b.left,y:e.clientY-b.top,sx:e.clientX,sy:e.clientY};moved=false;lastX=e.clientX;bird.setPointerCapture(e.pointerId)});
+bird.addEventListener('pointerup',e=>{if(!drag)return;drag=null;if(bird.hasPointerCapture(e.pointerId))bird.releasePointerCapture(e.pointerId);if(moved){choose('idle');return}clearTimeout(clickTimer);clickTimer=setTimeout(()=>choose('waving',true),240)});
+bird.addEventListener('pointercancel',()=>{drag=null;choose('idle')});
+bird.addEventListener('dblclick',()=>{clearTimeout(clickTimer);choose('jumping',true)});
+bird.addEventListener('keydown',e=>{if(e.key===' '){e.preventDefault();choose('jumping',true)}else if(e.key==='Enter'){choose('waving',true)}else if(e.key==='Escape'){choose('idle')}else if(['ArrowUp','ArrowRight','ArrowDown','ArrowLeft'].includes(e.key)){e.preventDefault();choose('idle');direction({ArrowUp:0,ArrowRight:4,ArrowDown:8,ArrowLeft:12}[e.key])}});
+function tick(now){if(state==='idle'&&look!==null&&!drag){cell(9+Math.floor(look/8),look%8)}else{const s=states[state];if(!deadline)deadline=now+s.d[0];if(now>=deadline&&!reduced){frame++;if(frame>=s.d.length){if(once){choose('idle');requestAnimationFrame(tick);return}frame=0}deadline=now+s.d[frame]}cell(s.row,reduced?0:frame)}requestAnimationFrame(tick)}
+const img=new Image();img.onerror=()=>document.querySelector('#error').style.display='block';img.onload=()=>requestAnimationFrame(tick);img.src='spritesheet.png';
+</script>
+</html>
